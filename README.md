@@ -1,5 +1,7 @@
 # ことのは · 标日听读
 
+在线访问：[https://welkin987.github.io/kotonoha/](https://welkin987.github.io/kotonoha/)
+
 标准日本语初级上册词汇听读工具，包含 24 课、1,079 个词条和完整的 `ja-JP-NanamiNeural` MP3 音频。
 
 网页支持单词点读、整课连读、从指定词开始、暂停继续，以及按需查看中文释义。音频按课号和单词 ID 保存，首次播放后可由 Service Worker 缓存离线使用。
