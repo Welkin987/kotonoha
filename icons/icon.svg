@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">ことのは · 听读少女</title>
+  <desc id="desc">原创二次元头像：深色短发、翡翠色眼睛，戴着珊瑚粉耳机的少女，身旁有一片叶子和音符。</desc>
+  <defs><clipPath id="round"><rect width="512" height="512" rx="112"/></clipPath></defs>
+  <g clip-path="url(#round)">
+    <path fill="#f4f2ec" d="M0 0h512v512H0z"/>
+    <circle cx="256" cy="260" r="194" fill="#dce9e5"/>
+    <path d="M119 309V215c0-79 53-133 133-133 85 0 140 56 140 138v113l-35 40H146z" fill="#293d42"/>
+    <path d="M153 194c-10-72 57-106 107-101 66 6 105 51 110 101" fill="none" stroke="#ef98a5" stroke-width="17"/>
+    <path d="M91 512v-56c0-53 57-91 159-91s171 39 171 91v56" fill="#315d55"/>
+    <path d="M228 337h56v49l-28 28-28-28z" fill="#f4bfae"/>
+    <path d="m228 371 28 43-37 26-31-57zm56 0-28 43 37 26 31-57z" fill="#fffdf8"/>
+    <path d="m256 414 21 18-21 53-21-53z" fill="#e5899b"/>
+    <path d="M151 230c0-66 42-111 104-111s104 45 104 111v39c0 61-44 101-104 101s-104-40-104-101z" fill="#ffdfce"/>
+    <path d="M151 249c-12-60 3-116 52-135 53-21 105-3 136 36l28 80c-36-15-62-42-75-73-18 31-47 56-91 69l22-35c-17 24-41 44-72 58z" fill="#293d42"/>
+    <path d="M174 246q23-14 44-3m69 0q23-12 45 2" fill="none" stroke="#43575b" stroke-width="6" stroke-linecap="round"/>
+    <path d="M177 267q21-20 43 0v13q-21 24-43 0zm112 0q21-20 43 0v13q-21 24-43 0z" fill="#fffdf8"/>
+    <ellipse cx="200" cy="276" rx="14" ry="21" fill="#4f9183"/>
+    <ellipse cx="310" cy="276" rx="14" ry="21" fill="#4f9183"/>
+    <ellipse cx="202" cy="276" rx="6" ry="14" fill="#293d42"/>
+    <ellipse cx="308" cy="276" rx="6" ry="14" fill="#293d42"/>
+    <path d="M174 267q24-18 47 0m65 0q24-18 48 0" fill="none" stroke="#293d42" stroke-width="8" stroke-linecap="round"/>
+    <path d="m178 265-6-7m158 7 7-7" stroke="#293d42" stroke-width="5" stroke-linecap="round"/>
+    <g fill="#fff"><circle cx="196" cy="267" r="6"/><circle cx="305" cy="267" r="6"/><circle cx="206" cy="286" r="3"/><circle cx="316" cy="286" r="3"/></g>
+    <g fill="#eea0a4" opacity=".6"><ellipse cx="178" cy="309" rx="17" ry="9"/><ellipse cx="331" cy="309" rx="17" ry="9"/></g>
+    <path d="m254 293-3 9m-11 24q15 13 30-1" fill="none" stroke="#bd7275" stroke-width="5" stroke-linecap="round"/>
+    <path d="m302 205 21 8m-20 3 20 8" stroke="#f2a7ad" stroke-width="6" stroke-linecap="round"/>
+    <g stroke="#293d42" stroke-width="5">
+      <rect x="116" y="225" width="36" height="93" rx="17" fill="#ef98a5"/>
+      <rect x="359" y="225" width="36" height="93" rx="17" fill="#ef98a5"/>
+    </g>
+    <path d="M129 246v46m244-46v46" stroke="#ffcfcd" stroke-width="6" stroke-linecap="round"/>
+    <path d="M404 107c22-29 43-25 43-25s1 27-27 40c-11 5-23 1-16-15z" fill="#649b87"/>
+    <path d="m406 125 25-25" stroke="#315d55" stroke-width="4" stroke-linecap="round"/>
+    <path d="M78 166v-40l29-7v34" fill="none" stroke="#d67e90" stroke-width="7" stroke-linejoin="round"/>
+    <g fill="#d67e90"><ellipse cx="70" cy="168" rx="11" ry="8" transform="rotate(-20 70 168)"/><ellipse cx="99" cy="155" rx="11" ry="8" transform="rotate(-20 99 155)"/></g>
+  </g>
+</svg>
