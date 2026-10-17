@@ -1,4 +1,4 @@
-const CACHE = 'kotonoha-v1.0.0';
+const CACHE = 'kotonoha-v1.0.1';
 const CORE_ASSETS = [
   './', './index.html', './styles.css', './app.js', './vocab-data.js',
   './vocabulary.json', './manifest.webmanifest', './icons/icon.svg',

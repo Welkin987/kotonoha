@@ -21,8 +21,8 @@
     wakeLock: null,
     settings: {
       repeat: 1,
-      gap: 700,
-      rate: 0.92,
+      gap: 300,
+      rate: 1,
       keepAwake: true,
       autoScroll: true
     },
@@ -35,6 +35,7 @@
       if (saved.settings) Object.assign(state.settings, saved.settings);
       if (saved.last) Object.assign(state.last, saved.last);
     } catch (_) {}
+    if (![100, 300, 700, 1000, 1500].includes(state.settings.gap)) state.settings.gap = 300;
   }
 
   function savePrefs() {
@@ -129,7 +130,7 @@
     };
     audio.src = audioPath(word);
     audio.currentTime = 0;
-    audio.playbackRate = Number(state.settings.rate) || 0.92;
+    audio.playbackRate = Number(state.settings.rate) || 1;
     const promise = audio.play();
     if (promise?.catch) promise.catch(error => {
       if (error.name !== 'AbortError' && !state.paused) playbackFailed(token, '播放失败，请点击单词重试');
@@ -339,7 +340,7 @@
         <summary>播放设置</summary>
         <div class="settings-body">
           <div class="field"><label for="repeatSelect">每个词重复</label><select id="repeatSelect"><option value="1">1 遍</option><option value="2">2 遍</option><option value="3">3 遍</option></select></div>
-          <div class="field"><label for="gapSelect">词间停顿</label><select id="gapSelect"><option value="300">0.3 秒</option><option value="700">0.7 秒</option><option value="1000">1 秒</option><option value="1500">1.5 秒</option><option value="2000">2 秒</option></select></div>
+          <div class="field"><label for="gapSelect">词间停顿</label><select id="gapSelect"><option value="100">0.1 秒</option><option value="300">0.3 秒</option><option value="700">0.7 秒</option><option value="1000">1 秒</option><option value="1500">1.5 秒</option></select></div>
           <div class="field"><label for="rateSelect">朗读速度</label><select id="rateSelect"><option value="0.75">0.75×</option><option value="0.85">0.85×</option><option value="0.92">0.92×</option><option value="1">1.0×</option><option value="1.1">1.1×</option><option value="1.2">1.2×</option></select></div>
           <div class="field"><span class="field-label">朗读声音</span><div class="audio-note">日语女声 · Nanami</div></div>
           <label class="toggle"><input id="wakeToggle" type="checkbox">播放时保持屏幕常亮</label>
@@ -351,7 +352,17 @@
     </div>`;
   }
 
+  const topbarObserver = new ResizeObserver(entries => {
+    document.documentElement.style.setProperty('--topbar-height', `${entries[0].target.getBoundingClientRect().height}px`);
+  });
+
+  function observeTopbar() {
+    topbarObserver.disconnect();
+    topbarObserver.observe(document.querySelector('.topbar'));
+  }
+
   function bindHome() {
+    observeTopbar();
     document.querySelectorAll('[data-open-lesson]').forEach(btn => btn.addEventListener('click', () => openLesson(Number(btn.dataset.openLesson))));
     document.querySelector('[data-continue]')?.addEventListener('click', () => { openLesson(state.last.lesson); setTimeout(()=>setHighlight(state.last.index,true), 40); });
     const install = document.getElementById('installBtn');
@@ -372,6 +383,7 @@
   }
 
   function bindLesson() {
+    observeTopbar();
     document.querySelector('[data-home]')?.addEventListener('click', goHome);
     document.getElementById('playAllBtn')?.addEventListener('click', () => startSequence(0));
     document.getElementById('pauseBtn')?.addEventListener('click', togglePause);
