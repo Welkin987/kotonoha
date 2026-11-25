@@ -1,7 +1,7 @@
 {
   "name": "ことのは · 标日听读",
   "short_name": "ことのは",
-  "description": "标准日本语初级上册词汇听读工具",
+  "description": "标准日本语初级上册单词和课文听读工具",
   "lang": "zh-CN",
   "start_url": "./",
   "scope": "./",

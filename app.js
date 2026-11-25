@@ -4,11 +4,21 @@
   const DATA = window.VOCAB_DATA;
   const app = document.getElementById('app');
   const AUDIO_BASE = './audio/ja-JP-NanamiNeural/';
+  const TEXT_AUDIO_BASE = './audio/lessons/minimax-hd/';
   const audio = new Audio();
   audio.preload = 'auto';
   const STORAGE = 'jisho-tts-v1';
+  const TEXT_RATES = [0.75, 0.85, 0.92, 1, 1.1, 1.2, 1.35, 1.5];
+  const TEXT_GAPS = [100, 300, 700, 1000, 1500];
+  const TEXT_MODES = { loop: '单课循环', next: '自动播下一课' };
+  let textCatalog;
+  let routeVersion = 0;
   const state = {
     lesson: null,
+    textLesson: null,
+    textIndex: 0,
+    textLast: null,
+    textSettings: { rate: 1, gap: 300, mode: 'loop' },
     currentIndex: null,
     playing: false,
     paused: false,
@@ -34,13 +44,21 @@
       const saved = JSON.parse(localStorage.getItem(STORAGE) || '{}');
       if (saved.settings) Object.assign(state.settings, saved.settings);
       if (saved.last) Object.assign(state.last, saved.last);
+      if (saved.textLast) state.textLast = saved.textLast;
+      if (saved.textSettings) {
+        const { rate, gap, mode } = saved.textSettings;
+        if (TEXT_RATES.includes(rate)) state.textSettings.rate = rate;
+        if (TEXT_GAPS.includes(gap)) state.textSettings.gap = gap;
+        if (Object.hasOwn(TEXT_MODES, mode)) state.textSettings.mode = mode;
+      }
     } catch (_) {}
     if (![100, 300, 700, 1000, 1500].includes(state.settings.gap)) state.settings.gap = 300;
   }
 
   function savePrefs() {
     try {
-      localStorage.setItem(STORAGE, JSON.stringify({settings: state.settings, last: state.last}));
+      const { settings, last, textSettings, textLast } = state;
+      localStorage.setItem(STORAGE, JSON.stringify({ settings, last, textSettings, textLast }));
     } catch (_) {}
   }
 
@@ -123,17 +141,21 @@
   }
 
   function playWordAudio(word, token, onEnd) {
+    playAudio(audioPath(word), word.id, state.settings.rate, token, onEnd);
+  }
+
+  function playAudio(path, id, rate, token, onEnd) {
     audio.onended = () => { if (token === state.token) onEnd?.(); };
     audio.onerror = () => {
       if (token !== state.token) return;
-      playbackFailed(token, `音频加载失败：${word.id}，请联网后重试`);
+      playbackFailed(token, `音频加载失败：${id}，请重试`);
     };
-    audio.src = audioPath(word);
+    audio.src = path;
     audio.currentTime = 0;
-    audio.playbackRate = Number(state.settings.rate) || 1;
+    audio.playbackRate = Number(rate) || 1;
     const promise = audio.play();
     if (promise?.catch) promise.catch(error => {
-      if (error.name !== 'AbortError' && !state.paused) playbackFailed(token, '播放失败，请点击单词重试');
+      if (error.name !== 'AbortError' && !state.paused) playbackFailed(token, '播放失败，请点击重试');
     });
   }
 
@@ -146,7 +168,7 @@
       const fn = state.pendingAfterGap;
       state.pendingAfterGap = null;
       if (state.playing && !state.paused && fn) fn();
-    }, Number(state.settings.gap) || 0);
+    }, state.textLesson ? state.textSettings.gap : Number(state.settings.gap) || 0);
   }
 
   function speakSequenceCurrent(token) {
@@ -205,7 +227,7 @@
       if (state.pendingAfterGap) scheduleAfterGap(state.pendingAfterGap);
       else {
         const token = state.token;
-        audio.play().catch(error => { if (error.name !== 'AbortError') playbackFailed(token, '播放失败，请点击单词重试'); });
+        audio.play().catch(error => { if (error.name !== 'AbortError') playbackFailed(token, '播放失败，请点击重试'); });
       }
       requestWakeLock();
     }
@@ -223,6 +245,10 @@
   }
 
   function updatePlaybackButtons() {
+    if (state.textLesson) {
+      updateTextPlayback();
+      return;
+    }
     const pause = document.getElementById('pauseBtn');
     const stop = document.getElementById('stopBtn');
     if (pause) { pause.disabled = !state.playing; pause.textContent = state.paused ? '▶ 继续' : '⏸ 暂停'; }
@@ -287,14 +313,11 @@
   function homeHTML() {
     const lastLesson = lessonByNo(state.last.lesson) || DATA.lessons[0];
     const lastWord = lastLesson.words[Math.min(state.last.index || 0, lastLesson.words.length - 1)];
-    const lessonCards = DATA.lessons.map(l => `
-      <button class="lesson-card" data-open-lesson="${l.lesson}">
-        <div class="num">第 ${String(l.lesson).padStart(2,'0')} 课</div>
-        <div class="ltitle">${esc(l.title)}</div>
-        <div class="count">${l.words.length} 条</div>
-      </button>`).join('');
+    const lessonCards = DATA.lessons.map(lesson =>
+      lessonCard(lesson.lesson, lesson.title, '#lesson-' + lesson.lesson, lesson.words.length + ' 条')
+    ).join('');
     return `<div class="shell">
-      <div class="topbar"><img class="brand-icon" src="./icons/icon.svg" alt="" width="32" height="32"><div class="title">ことのは · 标日听读</div><div class="spacer"></div><button id="installBtn" class="small" hidden>安装</button></div>
+      ${moduleBar('words')}
       <main class="content">
         <section class="hero">
           <h1>标准日本语 · 初级上册</h1>
@@ -312,6 +335,14 @@
     </div>`;
   }
 
+  function lessonCard(no, title, href, count = '') {
+    return `<a class="lesson-card" href="${href}">
+      <div class="num">第 ${String(no).padStart(2, '0')} 课</div>
+      <div class="ltitle" lang="ja">${esc(title)}</div>
+      ${count ? `<div class="count">${count}</div>` : ''}
+    </a>`;
+  }
+
   function lessonHTML(lesson) {
     const words = lesson.words.map((w,i) => `
       <article class="word-row" data-index="${i}">
@@ -326,7 +357,7 @@
         </div>
       </article>`).join('');
     return `<div class="shell">
-      <div class="topbar"><button class="small ghost" data-home>← 返回</button><div class="title">第 ${lesson.lesson} 课 · ${esc(lesson.title)}</div><div class="spacer"></div></div>
+      ${moduleBar('words', lesson.lesson)}
       <div class="controls">
         <div class="control-row">
           <button id="playAllBtn" class="primary">▶ 从头播放</button>
@@ -352,6 +383,252 @@
     </div>`;
   }
 
+  function moduleBar(mode, lesson = null) {
+    const wordsActive = mode === 'words' ? 'aria-current="page"' : '';
+    const textActive = mode === 'text' ? 'aria-current="page"' : '';
+    return `<header class="topbar module-bar">
+      <a class="brand-link" href="#words">
+        <img class="brand-icon" src="./icons/icon.svg" alt="" width="32" height="32">
+        <span class="title">ことのは <span class="brand-subtitle">· 标日听读</span></span>
+      </a>
+      <nav class="module-links" aria-label="学习模式">
+        <a href="#words" ${wordsActive}>单词</a>
+        <a href="#text" ${textActive}>课文</a>
+      </nav>
+      ${lesson && mode === 'words' ? '' : '<button id="installBtn" class="small" hidden>安装</button>'}
+    </header>`;
+  }
+
+  const TEXT_SECTIONS = [
+    ['title', null], ['classic_examples', '基本例句'],
+    ['basic_lesson', '基础课文'], ['applied_lesson', '应用课文']
+  ];
+
+  function showTextCatalog() {
+    const last = textCatalog.find(lesson => lesson.lesson === state.textLast?.lesson);
+    const lessonCards = textCatalog.map(lesson =>
+      lessonCard(lesson.lesson, lesson.basic_title, '#text-' + lesson.lesson)
+    ).join('');
+    app.innerHTML = `<div class="shell">
+      ${moduleBar('text')}
+      <main class="content">
+        <section class="hero">
+          <h1>标准日本语 · 初级上册</h1>
+          <p>选择课文，逐句点读或从指定句子开始连播。</p>
+          <div class="statusline"><span class="dot ok"></span><span>${textCatalog.length} 课</span><span>·</span><span id="offlineStatus"></span></div>
+        </section>
+        ${last ? `<div class="continue-card">
+          <div class="meta"><strong>继续上次位置</strong><span>第 ${last.lesson} 课 · 第 ${state.textLast.index + 1} 句</span></div>
+          <a class="primary" href="#text-resume">继续</a>
+        </div>` : ''}
+        <div class="section-title">课程</div>
+        <div class="lesson-grid">${lessonCards}</div>
+      </main>
+      <div class="footer-note">已播放的音频会缓存到本机，首次听读请保持联网。</div>
+    </div>`;
+    bindHome();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  async function openTextRoute(selection, version) {
+    closeMeaning();
+    stopPlayback();
+    state.lesson = null;
+    state.textLesson = null;
+    if (!textCatalog) {
+      app.innerHTML = moduleBar('text') + '<p class="text-message" role="status">正在加载课文…</p>';
+      observeTopbar();
+      bindInstall();
+      try {
+        const response = await fetch('./assets/text_tts.json');
+        if (!response.ok) throw new Error('课文加载失败');
+        textCatalog = (await response.json()).lessons;
+      } catch (_) {
+        if (version !== routeVersion) return;
+        app.innerHTML = moduleBar('text') + '<p class="text-message">课文加载失败。 <button id="retryText" class="small">重试</button></p>';
+        observeTopbar();
+        bindInstall();
+        document.getElementById('retryText').addEventListener('click', routeInitial);
+        return;
+      }
+    }
+    if (version !== routeVersion) return;
+    const resume = selection === 'resume';
+    const no = resume ? state.textLast?.lesson : Number(selection);
+    const lesson = textCatalog.find(item => item.lesson === no);
+    if (lesson) {
+      showTextLesson(lesson, resume);
+    } else {
+      history.replaceState(null, '', '#text');
+      showTextCatalog();
+    }
+  }
+
+  function textLineHTML(row, index) {
+    const heading = row.type === 'title';
+    if (row.voice === 'none') {
+      return row.type === 'section'
+        ? `<h3 class="text-group">${esc(row.display_text)}</h3>`
+        : `<p class="text-note">${esc(row.display_text)}</p>`;
+    }
+    const text = `<span class="text-line-copy" lang="ja">${esc(row.display_text)}</span>`;
+    const button = `<button type="button" class="text-line${heading ? ' text-line-title' : ''}" data-text-index="${index}">
+      <span class="text-line-icon" aria-hidden="true">▶</span>${text}
+    </button>`;
+    return heading ? (row.id.endsWith('.applied.title') ? `<h3>${button}</h3>` : `<h1>${button}</h1>`) : button;
+  }
+
+  function textOptions(values, format) {
+    return values.map(value => `<option value="${value}">${format(value)}</option>`).join('');
+  }
+
+  function showTextLesson(lesson, resume = false) {
+    const openSettings = document.getElementById('textSettings')?.open;
+    const entries = [];
+    const sections = TEXT_SECTIONS.map(([key, label]) => {
+      const lines = lesson[key].filter(row => !label || row.type !== 'section' || row.display_text !== label);
+      const content = lines.map(row => {
+        if (row.voice !== 'none') entries.push(row);
+        return textLineHTML(row, entries.length - 1);
+      }).join('');
+      if (!label) return `<div class="text-heading"><p>${esc(lesson.unit_title)}</p>${content}</div>`;
+      return `<section class="text-section"><h2>${label}</h2>${content}</section>`;
+    }).join('');
+    state.textLesson = { lesson: lesson.lesson, entries };
+    const savedIndex = state.textLast?.lesson === lesson.lesson ? state.textLast.index : 0;
+    state.textIndex = Number.isInteger(savedIndex) && entries[savedIndex] ? savedIndex : 0;
+    state.textLast = { lesson: lesson.lesson, index: state.textIndex };
+    savePrefs();
+    history.replaceState(null, '', '#text-' + lesson.lesson);
+    const chapterOptions = textCatalog.map(item => `<option value="${item.lesson}">
+      第 ${String(item.lesson).padStart(2, '0')} 课 · ${esc(item.basic_title)}</option>`).join('');
+    app.innerHTML = `<div class="shell text-shell">
+      ${moduleBar('text', lesson.lesson)}
+      <div class="controls text-controls">
+        <div class="text-toolbar">
+          <label class="text-picker" for="textChapter"><span>章节</span>
+            <select id="textChapter">${chapterOptions}</select>
+          </label>
+          <div class="text-transport">
+            <button id="textPlay" class="primary">▶ 连播</button>
+            <button id="textStop" class="ghost" disabled>停止</button>
+            <span id="textProgress" class="text-progress"></span>
+          </div>
+        </div>
+      </div>
+      <main class="text-content">
+        <details id="textSettings" class="settings text-settings" ${openSettings ? 'open' : ''}>
+          <summary>播放设置</summary>
+          <div class="settings-body">
+            <div class="field"><label for="textRate">朗读速度</label>
+              <select id="textRate">${textOptions(TEXT_RATES, rate => rate + '×')}</select>
+            </div>
+            <div class="field"><label for="textGap">句间停顿</label>
+              <select id="textGap">${textOptions(TEXT_GAPS, gap => gap / 1000 + ' 秒')}</select>
+            </div>
+            <div class="field"><label for="textMode">连播模式</label>
+              <select id="textMode">${textOptions(Object.keys(TEXT_MODES), mode => TEXT_MODES[mode])}</select>
+            </div>
+          </div>
+        </details>
+        <article class="text-sheet">${sections}</article>
+      </main>
+    </div>`;
+    observeTopbar();
+    bindInstall();
+    bindTextLesson();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    updateTextPlayback(resume);
+  }
+
+  function bindTextLesson() {
+    const chapter = document.getElementById('textChapter');
+    chapter.value = String(state.textLesson.lesson);
+    chapter.addEventListener('change', () => {
+      location.hash = 'text-' + chapter.value;
+    });
+    for (const [id, key] of [['textRate', 'rate'], ['textGap', 'gap'], ['textMode', 'mode']]) {
+      const select = document.getElementById(id);
+      select.value = String(state.textSettings[key]);
+      select.addEventListener('change', () => {
+        state.textSettings[key] = key === 'mode' ? select.value : Number(select.value);
+        if (key === 'rate') audio.playbackRate = state.textSettings.rate;
+        savePrefs();
+      });
+    }
+    document.getElementById('textPlay').addEventListener('click', () => {
+      if (state.playing && state.sequence) togglePause();
+      else startTextPlayback(state.textIndex, true);
+    });
+    document.getElementById('textStop').addEventListener('click', () => stopPlayback());
+    document.querySelector('.text-sheet').addEventListener('click', event => {
+      const line = event.target.closest('[data-text-index]');
+      if (line) startTextPlayback(Number(line.dataset.textIndex), state.sequence);
+    });
+  }
+
+  function updateTextPlayback(scroll = false) {
+    const play = document.getElementById('textPlay');
+    if (!play) return;
+    play.textContent = state.sequence ? (state.paused ? '▶ 继续' : '⏸ 暂停') : '▶ 连播';
+    document.getElementById('textStop').disabled = !state.playing;
+    document.getElementById('textProgress').textContent = `句 ${state.textIndex + 1} / ${state.textLesson.entries.length}`;
+    document.querySelector('.text-line[aria-current]')?.removeAttribute('aria-current');
+    const line = document.querySelector(`[data-text-index="${state.textIndex}"]`);
+    if (!line) return;
+    line.setAttribute('aria-current', 'true');
+    if (scroll) {
+      const box = line.getBoundingClientRect();
+      const controls = document.querySelector('.text-controls').getBoundingClientRect();
+      if (box.top < controls.bottom + 12 || box.bottom > window.innerHeight - 20) {
+        line.scrollIntoView({ block: 'center' });
+      }
+    }
+  }
+
+  function startTextPlayback(index, continuous) {
+    if (!state.textLesson?.entries[index]) return;
+    stopPlayback();
+    state.playing = true;
+    state.sequence = continuous;
+    requestWakeLock();
+    playTextLine(index);
+  }
+
+  function playTextLine(index) {
+    const { lesson, entries } = state.textLesson;
+    const row = entries[index];
+    state.textIndex = index;
+    state.textLast = { lesson, index };
+    savePrefs();
+    updateTextPlayback(state.sequence);
+    const path = TEXT_AUDIO_BASE + String(lesson).padStart(2, '0') + '/' + row.id + '.mp3';
+    playAudio(path, row.id, state.textSettings.rate, state.token, () => {
+      if (!state.sequence) {
+        stopPlayback();
+      } else if (index + 1 < entries.length) {
+        scheduleAfterGap(() => playTextLine(index + 1));
+      } else {
+        scheduleAfterGap(continueAfterLesson);
+      }
+    });
+  }
+
+  function continueAfterLesson() {
+    if (state.textSettings.mode === 'loop') {
+      playTextLine(0);
+      return;
+    }
+    const next = textCatalog[textCatalog.findIndex(item => item.lesson === state.textLesson.lesson) + 1];
+    if (next) {
+      showTextLesson(next);
+      playTextLine(0);
+    } else {
+      stopPlayback();
+      toast('已播放到最后一课');
+    }
+  }
+
   const topbarObserver = new ResizeObserver(entries => {
     document.documentElement.style.setProperty('--topbar-height', `${entries[0].target.getBoundingClientRect().height}px`);
   });
@@ -363,8 +640,12 @@
 
   function bindHome() {
     observeTopbar();
-    document.querySelectorAll('[data-open-lesson]').forEach(btn => btn.addEventListener('click', () => openLesson(Number(btn.dataset.openLesson))));
     document.querySelector('[data-continue]')?.addEventListener('click', () => { openLesson(state.last.lesson); setTimeout(()=>setHighlight(state.last.index,true), 40); });
+    bindInstall();
+    refreshHomeStatus();
+  }
+
+  function bindInstall() {
     const install = document.getElementById('installBtn');
     if (install) {
       install.hidden = !state.deferredInstall || isStandalone();
@@ -375,7 +656,6 @@
         state.deferredInstall = null; install.hidden = true;
       });
     }
-    refreshHomeStatus();
   }
 
   function refreshHomeStatus() {
@@ -384,7 +664,6 @@
 
   function bindLesson() {
     observeTopbar();
-    document.querySelector('[data-home]')?.addEventListener('click', goHome);
     document.getElementById('playAllBtn')?.addEventListener('click', () => startSequence(0));
     document.getElementById('pauseBtn')?.addEventListener('click', togglePause);
     document.getElementById('stopBtn')?.addEventListener('click', () => stopPlayback());
@@ -403,6 +682,7 @@
   function openLesson(no) {
     closeMeaning();
     stopPlayback();
+    state.textLesson = null;
     const lesson = lessonByNo(no); if (!lesson) return;
     state.lesson = lesson.lesson;
     history.replaceState(null,'',`#lesson-${lesson.lesson}`);
@@ -413,11 +693,18 @@
 
   function goHome() {
     closeMeaning();
-    stopPlayback(); state.lesson = null; history.replaceState(null,'',location.pathname + location.search);
+    stopPlayback(); state.lesson = null; state.textLesson = null;
+    if (location.hash && location.hash !== '#words') history.replaceState(null, '', '#words');
     app.innerHTML = homeHTML(); bindHome(); window.scrollTo({top:0});
   }
 
   function routeInitial() {
+    const version = ++routeVersion;
+    const textRoute = location.hash.match(/^#text(?:-(\d+|resume))?$/);
+    if (textRoute) {
+      openTextRoute(textRoute[1], version);
+      return;
+    }
     const m = location.hash.match(/^#lesson-(\d+)$/);
     if (m && lessonByNo(Number(m[1]))) openLesson(Number(m[1])); else goHome();
   }

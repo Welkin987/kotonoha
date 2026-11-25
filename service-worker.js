@@ -1,7 +1,7 @@
-const CACHE = 'kotonoha-v1.0.1';
+const CACHE = 'kotonoha-v1.1.1';
 const CORE_ASSETS = [
   './', './index.html', './styles.css', './app.js', './vocab-data.js',
-  './vocabulary.json', './manifest.webmanifest', './icons/icon.svg',
+  './vocabulary.json', './assets/text_tts.json', './manifest.webmanifest', './icons/icon.svg',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'
 ];
 
